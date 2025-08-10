@@ -1,0 +1,8 @@
+[phases.setup]
+nixPkgs = ['ffmpeg', 'python3']
+
+[phases.install]
+cmds = ['pip install -r requirements-converter.txt', 'pip install yt-dlp --upgrade']
+
+[start]
+cmd = 'uvicorn audio-converter-service:app --host 0.0.0.0 --port $PORT' 
