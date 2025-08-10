@@ -27,4 +27,4 @@ EXPOSE 8000
 ENV PORT=8000
 
 # Run the application
-CMD ["uvicorn", "audio-converter-service:app", "--host", "0.0.0.0", "--port", "8000"] 
+CMD ["sh", "-c", "uvicorn audio-converter-service:app --host 0.0.0.0 --port $PORT"] 
