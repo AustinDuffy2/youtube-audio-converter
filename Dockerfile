@@ -1,0 +1,30 @@
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    wget \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install yt-dlp
+RUN pip install --no-cache-dir yt-dlp
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements and install Python dependencies
+COPY requirements-converter.txt .
+RUN pip install --no-cache-dir -r requirements-converter.txt
+
+# Copy application code
+COPY audio-converter-service.py .
+
+# Expose port
+EXPOSE 8000
+
+# Set environment variable for port
+ENV PORT=8000
+
+# Run the application
+CMD ["uvicorn", "audio-converter-service:app", "--host", "0.0.0.0", "--port", "8000"] 
