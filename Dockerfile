@@ -7,8 +7,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install yt-dlp
-RUN pip install --no-cache-dir yt-dlp
+# Install latest yt-dlp (force update to bypass YouTube blocks)
+RUN pip install --no-cache-dir --upgrade yt-dlp
 
 # Set working directory
 WORKDIR /app

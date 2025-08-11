@@ -144,7 +144,7 @@ async def convert_video(request: ConversionRequest, background_tasks: Background
         raise HTTPException(500, f"Conversion failed: {str(e)}")
 
 async def download_audio(video_url: str, temp_dir: Path, format: str, quality: str) -> Path:
-    """Download audio using yt-dlp"""
+    """Download audio using yt-dlp with multiple fallback strategies"""
     
     # Quality settings
     quality_map = {
@@ -155,49 +155,89 @@ async def download_audio(video_url: str, temp_dir: Path, format: str, quality: s
     
     output_template = str(temp_dir / "%(title)s.%(ext)s")
     
-    # yt-dlp command with anti-bot measures
-    cmd = [
-        "yt-dlp",
-        "--extract-audio",
-        "--audio-format", format,
-        "--audio-quality", "0",  # Best quality
-        "--format", quality_map.get(quality, quality_map["high"]),
-        "--output", output_template,
-        "--no-playlist",
-        "--no-warnings",
-        "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "--add-header", "Accept-Language:en-US,en;q=0.9",
-        "--add-header", "Accept-Encoding:gzip, deflate, br",
-        "--add-header", "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "--add-header", "Upgrade-Insecure-Requests:1",
-        "--add-header", "Sec-Fetch-Dest:document",
-        "--add-header", "Sec-Fetch-Mode:navigate",
-        "--add-header", "Sec-Fetch-Site:none",
-        "--extractor-args", "youtube:player_client=web,mweb",
-        "--no-check-certificate",
-        video_url
+    # Multiple extraction strategies to try
+    strategies = [
+        {
+            "name": "iOS Mobile",
+            "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+            "extractor_args": "youtube:player_client=ios"
+        },
+        {
+            "name": "Android Mobile", 
+            "user_agent": "Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+            "extractor_args": "youtube:player_client=android"
+        },
+        {
+            "name": "Web Embedded",
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "extractor_args": "youtube:player_client=web_embedded"
+        }
     ]
     
-    print(f"🔄 Running: {' '.join(cmd)}")
+    # Try multiple strategies to bypass bot detection
+    last_error = None
     
-    # Run yt-dlp
-    process = await asyncio.create_subprocess_exec(
-        *cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE
-    )
+    for i, strategy in enumerate(strategies):
+        try:
+            print(f"🔄 Attempt {i+1}: Using {strategy['name']} strategy")
+            
+            cmd = [
+                "yt-dlp",
+                "--extract-audio",
+                "--audio-format", format,
+                "--audio-quality", "0",
+                "--format", "bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio",
+                "--output", output_template,
+                "--no-playlist",
+                "--no-warnings",
+                "--user-agent", strategy["user_agent"],
+                "--add-header", "Accept-Language:en-US,en;q=0.9",
+                "--add-header", "Accept:*/*",
+                "--add-header", "Origin:https://www.youtube.com",
+                "--add-header", "Referer:https://www.youtube.com/",
+                "--extractor-args", strategy["extractor_args"],
+                "--no-check-certificate",
+                "--ignore-errors",
+                "--socket-timeout", "30",
+                "--retries", "2",
+                video_url
+            ]
+            
+            print(f"🔄 Running: yt-dlp with {strategy['name']}")
+            
+            # Run yt-dlp
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            
+            stdout, stderr = await process.communicate()
+            
+            if process.returncode == 0:
+                # Success! Check for downloaded file
+                audio_files = list(temp_dir.glob(f"*.{format}"))
+                if audio_files:
+                    print(f"✅ Success with {strategy['name']} strategy!")
+                    break
+                else:
+                    print(f"⚠️ {strategy['name']} completed but no file found")
+                    continue
+            else:
+                error_msg = stderr.decode() if stderr else "Unknown error"
+                print(f"❌ {strategy['name']} failed: {error_msg}")
+                last_error = error_msg
+                continue
+                
+        except Exception as e:
+            print(f"❌ {strategy['name']} exception: {str(e)}")
+            last_error = str(e)
+            continue
     
-    stdout, stderr = await process.communicate()
-    
-    if process.returncode != 0:
-        error_msg = stderr.decode() if stderr else "Unknown yt-dlp error"
-        print(f"❌ yt-dlp error: {error_msg}")
-        raise Exception(f"yt-dlp failed: {error_msg}")
-    
-    # Find the downloaded file
+    # Check if we got any files
     audio_files = list(temp_dir.glob(f"*.{format}"))
     if not audio_files:
-        raise Exception("No audio file found after yt-dlp conversion")
+        raise Exception(f"All extraction strategies failed. Last error: {last_error}")
     
     return audio_files[0]
 
