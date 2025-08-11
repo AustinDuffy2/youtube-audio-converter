@@ -155,7 +155,7 @@ async def download_audio(video_url: str, temp_dir: Path, format: str, quality: s
     
     output_template = str(temp_dir / "%(title)s.%(ext)s")
     
-    # yt-dlp command
+    # yt-dlp command with anti-bot measures
     cmd = [
         "yt-dlp",
         "--extract-audio",
@@ -165,6 +165,16 @@ async def download_audio(video_url: str, temp_dir: Path, format: str, quality: s
         "--output", output_template,
         "--no-playlist",
         "--no-warnings",
+        "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "--add-header", "Accept-Language:en-US,en;q=0.9",
+        "--add-header", "Accept-Encoding:gzip, deflate, br",
+        "--add-header", "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "--add-header", "Upgrade-Insecure-Requests:1",
+        "--add-header", "Sec-Fetch-Dest:document",
+        "--add-header", "Sec-Fetch-Mode:navigate",
+        "--add-header", "Sec-Fetch-Site:none",
+        "--extractor-args", "youtube:player_client=web,mweb",
+        "--no-check-certificate",
         video_url
     ]
     
