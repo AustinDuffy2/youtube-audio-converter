@@ -143,9 +143,81 @@ async def convert_video(request: ConversionRequest, background_tasks: Background
         print(f"❌ Conversion failed: {str(e)}")
         raise HTTPException(500, f"Conversion failed: {str(e)}")
 
-async def download_audio(video_url: str, temp_dir: Path, format: str, quality: str) -> Path:
-    """Download audio using yt-dlp with multiple fallback strategies"""
+async def download_audio_cobalt(video_url: str, temp_dir: Path, format: str) -> Path:
+    """Download audio using Cobalt API - bypasses all YouTube restrictions"""
+    import aiohttp
+    import aiofiles
     
+    try:
+        print("🚀 Using Cobalt API to bypass YouTube restrictions...")
+        
+        # Cobalt API endpoint
+        cobalt_url = "https://api.cobalt.tools/api/json"
+        
+        # Prepare request
+        payload = {
+            "url": video_url,
+            "vCodec": "h264",
+            "vQuality": "720",
+            "aFormat": "mp3",
+            "filenamePattern": "classic",
+            "isAudioOnly": True,
+            "isNoTTWatermark": True
+        }
+        
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        }
+        
+        async with aiohttp.ClientSession() as session:
+            print(f"🔄 Calling Cobalt API for: {video_url}")
+            
+            async with session.post(cobalt_url, json=payload, headers=headers, timeout=60) as response:
+                if response.status != 200:
+                    raise Exception(f"Cobalt API error: {response.status}")
+                
+                result = await response.json()
+                print(f"📋 Cobalt response: {result}")
+                
+                if result.get("status") != "redirect" and result.get("status") != "stream":
+                    raise Exception(f"Cobalt failed: {result.get('text', 'Unknown error')}")
+                
+                download_url = result.get("url")
+                if not download_url:
+                    raise Exception("No download URL returned from Cobalt")
+                
+                print(f"📥 Downloading audio from: {download_url}")
+                
+                # Download the audio file
+                async with session.get(download_url, timeout=120) as audio_response:
+                    if audio_response.status != 200:
+                        raise Exception(f"Download failed: {audio_response.status}")
+                    
+                    # Save to temp file
+                    audio_file = temp_dir / f"cobalt_audio.{format}"
+                    async with aiofiles.open(audio_file, 'wb') as f:
+                        async for chunk in audio_response.content.iter_chunked(8192):
+                            await f.write(chunk)
+                    
+                    print(f"✅ Cobalt download completed: {audio_file}")
+                    return audio_file
+                    
+    except Exception as e:
+        print(f"❌ Cobalt API failed: {str(e)}")
+        raise e
+
+async def download_audio(video_url: str, temp_dir: Path, format: str, quality: str) -> Path:
+    """Download audio with Cobalt API first, yt-dlp as fallback"""
+    
+    # Try Cobalt API first (bypasses all restrictions)
+    try:
+        return await download_audio_cobalt(video_url, temp_dir, format)
+    except Exception as e:
+        print(f"⚠️ Cobalt failed, trying yt-dlp fallback: {str(e)}")
+    
+    # Fallback to yt-dlp (original code)
     # Quality settings
     quality_map = {
         "low": "worst[ext=m4a]/worst[ext=mp3]/worst",
