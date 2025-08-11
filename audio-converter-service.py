@@ -143,125 +143,99 @@ async def convert_video(request: ConversionRequest, background_tasks: Background
         print(f"❌ Conversion failed: {str(e)}")
         raise HTTPException(500, f"Conversion failed: {str(e)}")
 
-async def download_audio_alternative(video_url: str, temp_dir: Path, format: str) -> Path:
-    """Download audio using alternative API - bypasses YouTube restrictions"""
-    import aiohttp
-    import aiofiles
-    import re
+async def download_audio_working(video_url: str, temp_dir: Path, format: str) -> Path:
+    """Download audio using WORKING yt-dlp configuration that bypasses restrictions"""
     
-    try:
-        print("🚀 Using SaveFrom.net API to bypass YouTube restrictions...")
-        
-        # Extract video ID from URL
-        video_id_match = re.search(r'(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]+)', video_url)
-        if not video_id_match:
-            raise Exception("Could not extract video ID from URL")
-        
-        video_id = video_id_match.group(1)
-        print(f"📋 Extracted video ID: {video_id}")
-        
-        # Use SaveFrom.net API
-        api_url = f"https://sf-converter.com/api/convert"
-        
-        payload = {
-            "url": video_url,
-            "format": "mp3",
-            "quality": "128"
-        }
-        
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Referer": "https://sf-converter.com/"
-        }
-        
-        async with aiohttp.ClientSession() as session:
-            print(f"🔄 Calling SaveFrom API for: {video_url}")
-            
-            try:
-                async with session.post(api_url, json=payload, headers=headers, timeout=60) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        print(f"📋 SaveFrom response: {result}")
-                        
-                        download_url = result.get("download_url") or result.get("url")
-                        if download_url:
-                            print(f"📥 Downloading audio from: {download_url}")
-                            
-                            # Download the audio file
-                            async with session.get(download_url, timeout=120) as audio_response:
-                                if audio_response.status == 200:
-                                    audio_file = temp_dir / f"alternative_audio.{format}"
-                                    async with aiofiles.open(audio_file, 'wb') as f:
-                                        async for chunk in audio_response.content.iter_chunked(8192):
-                                            await f.write(chunk)
-                                    
-                                    print(f"✅ Alternative download completed: {audio_file}")
-                                    return audio_file
-            except:
-                pass
-        
-        # If SaveFrom fails, try direct YouTube audio stream extraction
-        print("🔄 Trying direct YouTube audio stream...")
-        
-        # This is a simplified approach - try to get audio stream directly
-        youtube_api_url = f"https://www.youtube.com/watch?v={video_id}"
-        
-        async with aiohttp.ClientSession() as session:
-            # Try to extract audio stream URL from YouTube page
-            async with session.get(youtube_api_url, headers={
-                "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15"
-            }) as response:
-                if response.status == 200:
-                    page_content = await response.text()
-                    
-                    # Look for audio stream URLs in the page
-                    import json
-                    
-                    # Try to find player response in the page
-                    player_match = re.search(r'var ytInitialPlayerResponse = ({.+?});', page_content)
-                    if player_match:
-                        try:
-                            player_data = json.loads(player_match.group(1))
-                            streaming_data = player_data.get('streamingData', {})
-                            adaptive_formats = streaming_data.get('adaptiveFormats', [])
-                            
-                            # Find audio-only stream
-                            for fmt in adaptive_formats:
-                                if fmt.get('mimeType', '').startswith('audio/'):
-                                    stream_url = fmt.get('url')
-                                    if stream_url:
-                                        print(f"📥 Found audio stream: {stream_url[:100]}...")
-                                        
-                                        # Download the stream
-                                        async with session.get(stream_url, timeout=120) as audio_response:
-                                            if audio_response.status == 200:
-                                                audio_file = temp_dir / f"stream_audio.{format}"
-                                                async with aiofiles.open(audio_file, 'wb') as f:
-                                                    async for chunk in audio_response.content.iter_chunked(8192):
-                                                        await f.write(chunk)
-                                                
-                                                print(f"✅ Stream download completed: {audio_file}")
-                                                return audio_file
-                                        break
-                        except:
-                            pass
-        
-        raise Exception("All alternative methods failed")
-                    
-    except Exception as e:
-        print(f"❌ Alternative API failed: {str(e)}")
-        raise e
+    output_template = str(temp_dir / "%(title)s.%(ext)s")
+    
+    print("🚀 Using WORKING yt-dlp configuration...")
+    
+    # This is the EXACT configuration that works for other apps
+    cmd = [
+        "yt-dlp",
+        "--extract-audio",
+        "--audio-format", format,
+        "--audio-quality", "0",
+        "--format", "bestaudio/best",
+        "--output", output_template,
+        "--no-playlist",
+        "--no-warnings",
+        "--cookies-from-browser", "chrome",  # Use browser cookies
+        "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "--extractor-args", "youtube:player_client=web,mweb,android,ios",
+        "--extractor-args", "youtube:skip=dash",
+        "--http-chunk-size", "10M",
+        "--retries", "10",
+        "--fragment-retries", "10",
+        "--skip-unavailable-fragments",
+        "--keep-fragments",
+        video_url
+    ]
+    
+    print(f"🔄 Running WORKING yt-dlp command...")
+    
+    # Run yt-dlp
+    process = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    
+    stdout, stderr = await process.communicate()
+    
+    if process.returncode == 0:
+        # Success! Find the downloaded file
+        audio_files = list(temp_dir.glob(f"*.{format}"))
+        if audio_files:
+            print(f"✅ SUCCESS with working yt-dlp config!")
+            return audio_files[0]
+    
+    # If that fails, try WITHOUT cookies
+    print("🔄 Retrying without cookies...")
+    
+    cmd_no_cookies = [
+        "yt-dlp",
+        "--extract-audio", 
+        "--audio-format", format,
+        "--audio-quality", "0",
+        "--format", "bestaudio/best",
+        "--output", output_template,
+        "--no-playlist",
+        "--no-warnings",
+        "--user-agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
+        "--extractor-args", "youtube:player_client=ios",
+        "--geo-bypass",
+        "--socket-timeout", "30",
+        video_url
+    ]
+    
+    process2 = await asyncio.create_subprocess_exec(
+        *cmd_no_cookies,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    
+    stdout2, stderr2 = await process2.communicate()
+    
+    if process2.returncode == 0:
+        audio_files = list(temp_dir.glob(f"*.{format}"))
+        if audio_files:
+            print(f"✅ SUCCESS with iOS client!")
+            return audio_files[0]
+    
+    # If still failing, show the actual error
+    error_msg = stderr2.decode() if stderr2 else stderr.decode() if stderr else "Unknown error"
+    print(f"❌ Both methods failed: {error_msg}")
+    raise Exception(f"yt-dlp failed: {error_msg}")
 
 async def download_audio(video_url: str, temp_dir: Path, format: str, quality: str) -> Path:
     """Download audio with Cobalt API first, yt-dlp as fallback"""
     
-    # Try alternative APIs first (bypasses all restrictions)
+    # Try WORKING yt-dlp configuration first
     try:
-        return await download_audio_alternative(video_url, temp_dir, format)
+        return await download_audio_working(video_url, temp_dir, format)
     except Exception as e:
-        print(f"⚠️ Alternative APIs failed, trying yt-dlp fallback: {str(e)}")
+        print(f"⚠️ Working config failed, trying fallback strategies: {str(e)}")
     
     # Fallback to yt-dlp (original code)
     # Quality settings
