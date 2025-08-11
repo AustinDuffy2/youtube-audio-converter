@@ -25,8 +25,12 @@ COPY audio-converter-service.py .
 # Expose port
 EXPOSE 8000
 
-# Set environment variable for port
+# Set environment variables
 ENV PORT=8000
+ENV PYTHONHTTPSVERIFY=0
+ENV SSL_VERIFY=false
+ENV CURL_CA_BUNDLE=""
+ENV REQUESTS_CA_BUNDLE=""
 
 # Run the application
 CMD ["sh", "-c", "uvicorn audio-converter-service:app --host 0.0.0.0 --port $PORT"] 

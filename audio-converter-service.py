@@ -202,6 +202,7 @@ async def download_audio(video_url: str, temp_dir: Path, format: str, quality: s
                 "--socket-timeout", "30",
                 "--retries", "2",
                 "--legacy-server-connect",
+                "--prefer-insecure",
                 video_url
             ]
             
