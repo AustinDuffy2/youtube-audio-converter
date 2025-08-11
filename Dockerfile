@@ -5,7 +5,9 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     wget \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && update-ca-certificates
 
 # Install latest yt-dlp (force update to bypass YouTube blocks)
 RUN pip install --no-cache-dir --upgrade yt-dlp

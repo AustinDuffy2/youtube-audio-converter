@@ -197,9 +197,11 @@ async def download_audio(video_url: str, temp_dir: Path, format: str, quality: s
                 "--add-header", "Referer:https://www.youtube.com/",
                 "--extractor-args", strategy["extractor_args"],
                 "--no-check-certificate",
+                "--ignore-config",
                 "--ignore-errors",
                 "--socket-timeout", "30",
                 "--retries", "2",
+                "--legacy-server-connect",
                 video_url
             ]
             
