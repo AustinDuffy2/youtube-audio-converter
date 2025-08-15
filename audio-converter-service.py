@@ -645,7 +645,7 @@ async def extract_audio_and_transcribe_with_whisper(video_url: str, language: st
              'http_headers': {**audio_opts['http_headers'], 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1'}
             },
             
-            # Strategy 3: Minimal approach (sometimes less is more)
+            # Strategy 3: Embed approach (bypass main YouTube page)
             {
                 'format': 'bestaudio/best',
                 'extractaudio': True,
@@ -655,6 +655,28 @@ async def extract_audio_and_transcribe_with_whisper(video_url: str, language: st
                 'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 'no_check_certificate': True,
                 'ignoreerrors': True,
+                # Try using embed URLs instead of regular YouTube URLs
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['android', 'web'],
+                        'skip': ['webpage'],
+                    }
+                },
+            },
+            
+            # Strategy 4: Android client (often less restricted)
+            {
+                'format': 'bestaudio/best',
+                'extractaudio': True,
+                'audioformat': 'mp3',
+                'outtmpl': f'{TEMP_DIR}/%(id)s.%(ext)s',
+                'quiet': True,
+                'user_agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip',
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['android'],
+                    }
+                },
             }
         ]
         
@@ -663,7 +685,7 @@ async def extract_audio_and_transcribe_with_whisper(video_url: str, language: st
         
         for i, strategy in enumerate(strategies, 1):
             try:
-                logger.info(f"🎯 Trying bypass strategy {i}/3...")
+                logger.info(f"🎯 Trying bypass strategy {i}/{len(strategies)}...")
                 with yt_dlp.YoutubeDL(strategy) as ydl:
                     info = ydl.extract_info(video_url, download=True)
                     if info:
