@@ -13,14 +13,36 @@ import tempfile
 import subprocess
 import uuid
 import asyncio
+import base64
+import json
+import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, List
+from datetime import datetime
+import ssl
+import urllib3
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
 import uvicorn
+import yt_dlp
+import requests
+
+# Disable SSL warnings and verification
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+ssl._create_default_https_context = ssl._create_unverified_context
+
+# Set SSL bypass environment variables
+os.environ['PYTHONHTTPSVERIFY'] = '0'
+os.environ['SSL_VERIFY'] = 'false'
+os.environ['CURL_CA_BUNDLE'] = ''
+os.environ['REQUESTS_CA_BUNDLE'] = ''
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Initialize FastAPI
 app = FastAPI(
@@ -41,6 +63,8 @@ app.add_middleware(
 # Environment variables
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+TEMP_DIR = os.environ.get("TEMP_DIR", "/tmp")
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
     raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables are required")
@@ -60,6 +84,18 @@ class ConversionResponse(BaseModel):
     audioUrl: Optional[str] = None
     duration: Optional[float] = None
     fileSize: Optional[int] = None
+    error: Optional[str] = None
+
+class CaptionRequest(BaseModel):
+    video_url: str
+    language: str = 'en'
+    fallback_to_whisper: bool = True
+
+class CaptionResponse(BaseModel):
+    success: bool
+    captions: Optional[List[Dict]] = None
+    transcription: Optional[Dict] = None
+    metadata: Optional[Dict] = None
     error: Optional[str] = None
 
 @app.get("/")
@@ -160,10 +196,15 @@ async def download_audio_working(video_url: str, temp_dir: Path, format: str) ->
         "--output", output_template,
         "--no-playlist",
         "--no-warnings",
-        "--cookies-from-browser", "chrome",  # Use browser cookies
         "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "--extractor-args", "youtube:player_client=web,mweb,android,ios",
-        "--extractor-args", "youtube:skip=dash",
+        "--add-header", "Accept-Language:en-US,en;q=0.9",
+        "--add-header", "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "--add-header", "Accept-Encoding:gzip, deflate, br",
+        "--add-header", "DNT:1",
+        "--add-header", "Connection:keep-alive",
+        "--add-header", "Upgrade-Insecure-Requests:1",
+        "--extractor-args", "youtube:player_client=web",
+        "--no-check-certificate",
         "--http-chunk-size", "10M",
         "--retries", "10",
         "--fragment-retries", "10",
@@ -174,11 +215,21 @@ async def download_audio_working(video_url: str, temp_dir: Path, format: str) ->
     
     print(f"🔄 Running WORKING yt-dlp command...")
     
-    # Run yt-dlp
+    # Run yt-dlp with SSL bypass environment
+    env = os.environ.copy()
+    env.update({
+        'PYTHONHTTPSVERIFY': '0',
+        'SSL_VERIFY': 'false',
+        'CURL_CA_BUNDLE': '',
+        'REQUESTS_CA_BUNDLE': '',
+        'NODE_TLS_REJECT_UNAUTHORIZED': '0'
+    })
+    
     process = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE
+        stderr=asyncio.subprocess.PIPE,
+        env=env
     )
     
     stdout, stderr = await process.communicate()
@@ -212,7 +263,8 @@ async def download_audio_working(video_url: str, temp_dir: Path, format: str) ->
     process2 = await asyncio.create_subprocess_exec(
         *cmd_no_cookies,
         stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE
+        stderr=asyncio.subprocess.PIPE,
+        env=env
     )
     
     stdout2, stderr2 = await process2.communicate()
@@ -289,7 +341,7 @@ async def download_audio(video_url: str, temp_dir: Path, format: str, quality: s
                 "--add-header", "Referer:https://www.youtube.com/",
                 "--extractor-args", strategy["extractor_args"],
                 "--no-check-certificate",
-                "--ignore-config",
+                "--ignore-config", 
                 "--ignore-errors",
                 "--socket-timeout", "30",
                 "--retries", "2",
@@ -300,11 +352,21 @@ async def download_audio(video_url: str, temp_dir: Path, format: str, quality: s
             
             print(f"🔄 Running: yt-dlp with {strategy['name']}")
             
-            # Run yt-dlp
+            # Run yt-dlp with SSL bypass environment
+            env = os.environ.copy()
+            env.update({
+                'PYTHONHTTPSVERIFY': '0',
+                'SSL_VERIFY': 'false',
+                'CURL_CA_BUNDLE': '',
+                'REQUESTS_CA_BUNDLE': '',
+                'NODE_TLS_REJECT_UNAUTHORIZED': '0'
+            })
+            
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                stderr=asyncio.subprocess.PIPE,
+                env=env
             )
             
             stdout, stderr = await process.communicate()
@@ -475,6 +537,310 @@ async def cleanup_temp_dir(temp_dir: Path):
         print(f"🗑️ Cleaned up: {temp_dir}")
     except Exception as e:
         print(f"⚠️ Cleanup failed: {e}")
+
+async def extract_audio_and_transcribe_with_whisper(video_url: str, language: str = 'en') -> Dict:
+    """Extract audio and transcribe with Whisper API"""
+    try:
+        logger.info(f"🎵 Extracting audio for Whisper: {video_url}")
+        
+        # Extract video ID
+        video_id = extract_video_id(video_url)
+        if not video_id:
+            return {
+                'success': False,
+                'error': 'Could not extract video ID from URL'
+            }
+        
+        # ADVANCED YOUTUBE BOT DETECTION BYPASS
+        import random
+        
+        # Rotate user agents to avoid detection
+        user_agents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/121.0',
+            # Mobile user agents (often less restricted)
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
+            'Mozilla/5.0 (Android 14; Mobile; rv:109.0) Gecko/121.0 Firefox/121.0',
+            'Mozilla/5.0 (Linux; Android 14; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+        ]
+        
+        selected_ua = random.choice(user_agents)
+        logger.info(f"🕵️ Using User Agent: {selected_ua[:50]}...")
+        
+        # Advanced bypass options with multiple strategies
+        audio_opts = {
+            'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best',
+            'extractaudio': True,
+            'audioformat': 'mp3',
+            'outtmpl': f'{TEMP_DIR}/%(id)s.%(ext)s',
+            'quiet': False,  # Enable logging to see what's happening
+            'no_warnings': False,
+            'socket_timeout': 45,
+            'retries': 10,
+            'fragment_retries': 10,
+            'ignoreerrors': False,
+            
+            # BYPASS STRATEGY 1: Rotate User Agents
+            'user_agent': selected_ua,
+            
+            # BYPASS STRATEGY 2: Advanced Headers
+            'http_headers': {
+                'User-Agent': selected_ua,
+                'Accept': '*/*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Cache-Control': 'max-age=0',
+                'Referer': 'https://www.google.com/',
+            },
+            
+            # BYPASS STRATEGY 3: Geo and Network Simulation
+            'geo_bypass': True,
+            'geo_bypass_country': random.choice(['US', 'CA', 'GB', 'AU', 'DE']),
+            
+            # BYPASS STRATEGY 4: Rate Limiting
+            'sleep_interval': 2,
+            'max_sleep_interval': 5,
+            'sleep_interval_requests': 1,
+            
+            # BYPASS STRATEGY 5: Format Selection (avoid detection)
+            'prefer_free_formats': True,
+            'youtube_include_dash_manifest': False,
+            
+            # BYPASS STRATEGY 6: Extractor Arguments
+            'extractor_args': {
+                'youtube': {
+                    'skip': ['dash', 'hls'],
+                    'player_skip': ['configs'],
+                    'comment_sort': ['top'],
+                    'max_comments': [0],
+                }
+            },
+            
+            # BYPASS STRATEGY 7: Additional Options
+            'no_check_certificate': True,
+            'prefer_insecure': True,
+            'call_home': False,
+            'no_color': True,
+        }
+        
+        # TRY MULTIPLE BYPASS STRATEGIES
+        strategies = [
+            # Strategy 1: Standard approach with advanced headers
+            audio_opts,
+            
+            # Strategy 2: Mobile-first approach
+            {**audio_opts, 
+             'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
+             'format': 'worst[ext=mp4]/worst',
+             'http_headers': {**audio_opts['http_headers'], 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1'}
+            },
+            
+            # Strategy 3: Minimal approach (sometimes less is more)
+            {
+                'format': 'bestaudio/best',
+                'extractaudio': True,
+                'audioformat': 'mp3',
+                'outtmpl': f'{TEMP_DIR}/%(id)s.%(ext)s',
+                'quiet': True,
+                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'no_check_certificate': True,
+                'ignoreerrors': True,
+            }
+        ]
+        
+        info = None
+        last_error = None
+        
+        for i, strategy in enumerate(strategies, 1):
+            try:
+                logger.info(f"🎯 Trying bypass strategy {i}/3...")
+                with yt_dlp.YoutubeDL(strategy) as ydl:
+                    info = ydl.extract_info(video_url, download=True)
+                    if info:
+                        logger.info(f"✅ Strategy {i} succeeded!")
+                        break
+            except Exception as e:
+                last_error = str(e)
+                logger.warning(f"❌ Strategy {i} failed: {str(e)[:100]}...")
+                if i < len(strategies):
+                    logger.info(f"🔄 Trying next strategy...")
+                    # Wait a bit between attempts
+                    import time
+                    time.sleep(random.uniform(1, 3))
+                continue
+        
+        if not info:
+            raise Exception(f"All bypass strategies failed. Last error: {last_error}")
+            
+        video_id = info.get('id')
+        title = info.get('title', 'Unknown Video')
+        duration = info.get('duration', 0)
+        
+        # Find audio file
+        for ext in ['mp3', 'm4a', 'webm', 'opus']:
+            audio_path = f"{TEMP_DIR}/{video_id}.{ext}"
+            if os.path.exists(audio_path):
+                break
+        else:
+            return {
+                'success': False,
+                'error': 'Audio file not found after extraction'
+            }
+        
+        # Convert to base64
+        with open(audio_path, 'rb') as f:
+            audio_data = f.read()
+        
+        audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+        
+        # Clean up audio file
+        try:
+            os.remove(audio_path)
+        except:
+            pass
+        
+        # Transcribe with Whisper
+        return await transcribe_with_whisper_api(
+            audio_base64, 'audio/mp3', title, duration, language, video_id
+        )
+            
+    except Exception as e:
+        logger.error(f"❌ Audio extraction failed: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
+async def transcribe_with_whisper_api(audio_base64: str, mime_type: str, title: str, duration: int, language: str, video_id: str) -> Dict:
+    """Transcribe audio using OpenAI Whisper API"""
+    if not OPENAI_API_KEY:
+        return {
+            'success': False,
+            'error': 'OpenAI API key not configured'
+        }
+    
+    try:
+        # Decode and save audio
+        audio_data = base64.b64decode(audio_base64)
+        temp_path = f"{TEMP_DIR}/whisper_{uuid.uuid4().hex}.mp3"
+        
+        with open(temp_path, 'wb') as f:
+            f.write(audio_data)
+        
+        # Call Whisper API
+        with open(temp_path, 'rb') as audio_file:
+            response = requests.post(
+                'https://api.openai.com/v1/audio/transcriptions',
+                headers={
+                    'Authorization': f'Bearer {OPENAI_API_KEY}'
+                },
+                files={
+                    'file': audio_file
+                },
+                data={
+                    'model': 'whisper-1',
+                    'language': language,
+                    'response_format': 'verbose_json'
+                },
+                timeout=300
+            )
+        
+        # Clean up temp file
+        try:
+            os.remove(temp_path)
+        except:
+            pass
+        
+        if response.status_code == 200:
+            whisper_result = response.json()
+            
+            # Convert to our format
+            segments = []
+            if 'segments' in whisper_result:
+                segments = [
+                    {
+                        'start': seg.get('start', 0),
+                        'end': seg.get('end', 0),
+                        'text': seg.get('text', '').strip()
+                    }
+                    for seg in whisper_result['segments']
+                    if seg.get('text', '').strip()
+                ]
+            
+            return {
+                'success': True,
+                'transcription': {
+                    'text': whisper_result.get('text', ''),
+                    'language': whisper_result.get('language', language),
+                    'segments': segments
+                },
+                'metadata': {
+                    'title': title,
+                    'duration': duration,
+                    'channelName': 'Unknown Channel',
+                    'thumbnailUrl': f'https://img.youtube.com/vi/{video_id}/hqdefault.jpg'
+                },
+                'audioUrl': f'https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3'  # Mock URL
+            }
+        else:
+            return {
+                'success': False,
+                'error': f'Whisper API error: {response.status_code} - {response.text}'
+            }
+            
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'Transcription failed: {str(e)}'
+        }
+
+@app.post("/extract-captions", response_model=CaptionResponse)
+async def extract_captions(request: CaptionRequest):
+    """Extract captions with Whisper fallback"""
+    try:
+        logger.info(f"🎬 Processing caption request for: {request.video_url}")
+        
+        # Skip caption extraction and go directly to Whisper transcription
+        # This ensures we always get real audio transcription instead of YouTube captions
+        if request.fallback_to_whisper:
+            logger.info("🎤 Using Whisper transcription for accurate audio-to-text conversion...")
+            whisper_result = await extract_audio_and_transcribe_with_whisper(request.video_url, request.language)
+            
+            if whisper_result['success']:
+                return CaptionResponse(
+                    success=True,
+                    transcription=whisper_result.get('transcription'),
+                    metadata=whisper_result.get('metadata'),
+                    captions=[]  # Empty since we're using transcription instead
+                )
+            else:
+                return CaptionResponse(
+                    success=False,
+                    error=whisper_result.get('error')
+                )
+        
+        # Fallback response if Whisper is not requested
+        return CaptionResponse(
+            success=False,
+            error="Only Whisper transcription is supported in this version"
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Caption extraction failed: {str(e)}")
+        return CaptionResponse(
+            success=False,
+            error=str(e)
+        )
 
 if __name__ == "__main__":
     # For local development
