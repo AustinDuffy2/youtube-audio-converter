@@ -551,27 +551,159 @@ async def extract_audio_and_transcribe_with_whisper(video_url: str, language: st
                 'error': 'Could not extract video ID from URL'
             }
         
-        # ADVANCED YOUTUBE BOT DETECTION BYPASS
+        # ADVANCED YOUTUBE BOT DETECTION BYPASS WITH PROXY TUNNELING
         import random
+        import requests
         
-        # Rotate user agents to avoid detection
-        user_agents = [
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/121.0',
-            # Mobile user agents (often less restricted)
-            'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
-            'Mozilla/5.0 (Android 14; Mobile; rv:109.0) Gecko/121.0 Firefox/121.0',
-            'Mozilla/5.0 (Linux; Android 14; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
-        ]
+        # REALISTIC CHROME BROWSER FINGERPRINTING
+        def generate_realistic_chrome_fingerprint():
+            """Generate realistic Chrome browser fingerprint with proper versions and features"""
+            chrome_versions = ['120.0.6099.109', '120.0.6099.110', '120.0.6099.111', '120.0.6099.112', '120.0.6099.113']
+            webkit_versions = ['537.36']
+            
+            chrome_version = random.choice(chrome_versions)
+            webkit_version = random.choice(webkit_versions)
+            
+            # Windows versions
+            windows_versions = [
+                'Windows NT 10.0; Win64; x64',
+                'Windows NT 10.0; WOW64',
+                'Windows NT 11.0; Win64; x64'
+            ]
+            
+            # macOS versions  
+            macos_versions = [
+                'Macintosh; Intel Mac OS X 10_15_7',
+                'Macintosh; Intel Mac OS X 11_7_10',
+                'Macintosh; Intel Mac OS X 12_7_2',
+                'Macintosh; Intel Mac OS X 13_6_3'
+            ]
+            
+            # Choose platform
+            if random.choice([True, False]):
+                platform = random.choice(windows_versions)
+            else:
+                platform = random.choice(macos_versions)
+            
+            user_agent = f'Mozilla/5.0 ({platform}) AppleWebKit/{webkit_version} (KHTML, like Gecko) Chrome/{chrome_version} Safari/{webkit_version}'
+            
+            return {
+                'user_agent': user_agent,
+                'chrome_version': chrome_version,
+                'platform': platform
+            }
         
-        selected_ua = random.choice(user_agents)
-        logger.info(f"🕵️ Using User Agent: {selected_ua[:50]}...")
+        # ADVANCED PROXY AND TUNNEL INTEGRATION
+        async def get_bypass_infrastructure():
+            """Get working proxies and tunnel endpoints for IP rotation"""
+            try:
+                # Try to import our tunnel proxy service
+                from fake_useragent import UserAgent
+                
+                # Use fake-useragent for even more realistic browser simulation
+                ua = UserAgent()
+                realistic_agents = [
+                    ua.chrome,
+                    ua.firefox, 
+                    ua.safari,
+                    ua.edge
+                ]
+                
+                # Get some working free proxies for testing
+                # In production, you'd use premium residential proxies
+                test_proxies = [
+                    'http://103.149.162.194:80',
+                    'http://103.145.113.78:80', 
+                    'http://188.166.56.246:80',
+                    'http://157.230.103.91:33554',
+                    'http://165.154.243.154:80'
+                ]
+                
+                # Test which proxies are working
+                working_proxies = []
+                for proxy in test_proxies[:3]:  # Test first 3
+                    try:
+                        response = requests.get('https://httpbin.org/ip', 
+                                              proxies={'http': proxy, 'https': proxy}, 
+                                              timeout=3)
+                        if response.status_code == 200:
+                            working_proxies.append(proxy)
+                            logger.info(f"✅ Working proxy: {proxy}")
+                    except:
+                        pass
+                
+                return {
+                    'proxies': working_proxies,
+                    'user_agents': realistic_agents[:4]  # Get 4 realistic UAs
+                }
+                
+            except Exception as e:
+                logger.warning(f"⚠️ Advanced bypass setup failed: {e}")
+                return {'proxies': [], 'user_agents': []}
         
-        # Advanced bypass options with multiple strategies
-        audio_opts = {
+        # Get bypass infrastructure
+        try:
+            import asyncio
+            if hasattr(asyncio, 'run'):
+                bypass_info = asyncio.run(get_bypass_infrastructure())
+            else:
+                bypass_info = {'proxies': [], 'user_agents': []}
+        except:
+            bypass_info = {'proxies': [], 'user_agents': []}
+        
+        fingerprint = generate_realistic_chrome_fingerprint()
+        proxy_list = bypass_info.get('proxies', [])
+        enhanced_user_agents = bypass_info.get('user_agents', [fingerprint['user_agent']])
+        
+        logger.info(f"🕵️ Generated Chrome fingerprint: {fingerprint['user_agent'][:60]}...")
+        logger.info(f"🌐 Working proxies found: {len(proxy_list)}")
+        logger.info(f"🎭 Enhanced user agents: {len(enhanced_user_agents)}")
+        
+        # Use enhanced user agent if available
+        if enhanced_user_agents:
+            fingerprint['user_agent'] = random.choice(enhanced_user_agents)
+        
+        # REALISTIC CHROME BROWSER SIMULATION
+        def create_realistic_chrome_headers(fingerprint):
+            """Create realistic Chrome browser headers with proper fingerprinting"""
+            return {
+                'User-Agent': fingerprint['user_agent'],
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Sec-CH-UA': f'"Not_A Brand";v="8", "Chromium";v="{fingerprint["chrome_version"].split(".")[0]}", "Google Chrome";v="{fingerprint["chrome_version"].split(".")[0]}"',
+                'Sec-CH-UA-Mobile': '?0',
+                'Sec-CH-UA-Platform': f'"{fingerprint["platform"].split(";")[0] if "Windows" in fingerprint["platform"] else "macOS"}"',
+                'Cache-Control': 'max-age=0',
+                'Referer': 'https://www.google.com/',
+                'Origin': 'https://www.youtube.com',
+            }
+        
+        chrome_headers = create_realistic_chrome_headers(fingerprint)
+        
+        # PROXY CONFIGURATION
+        def get_proxy_config():
+            """Get proxy configuration for requests"""
+            if proxy_list:
+                proxy = random.choice(proxy_list)
+                logger.info(f"🌐 Using proxy: {proxy}")
+                return {
+                    'http': proxy,
+                    'https': proxy
+                }
+            return None
+        
+        proxy_config = get_proxy_config()
+        
+        # Advanced bypass options with realistic Chrome simulation
+        base_opts = {
             'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best',
             'extractaudio': True,
             'audioformat': 'mp3',
@@ -583,29 +715,16 @@ async def extract_audio_and_transcribe_with_whisper(video_url: str, language: st
             'fragment_retries': 10,
             'ignoreerrors': False,
             
-            # BYPASS STRATEGY 1: Rotate User Agents
-            'user_agent': selected_ua,
+            # REALISTIC CHROME BROWSER SIMULATION
+            'user_agent': fingerprint['user_agent'],
+            'http_headers': chrome_headers,
             
-            # BYPASS STRATEGY 2: Advanced Headers
-            'http_headers': {
-                'User-Agent': selected_ua,
-                'Accept': '*/*',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'DNT': '1',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'none',
-                'Sec-Fetch-User': '?1',
-                'Cache-Control': 'max-age=0',
-                'Referer': 'https://www.google.com/',
-            },
-            
-            # BYPASS STRATEGY 3: Geo and Network Simulation
+            # BYPASS STRATEGY 3: Geo and Network Simulation  
             'geo_bypass': True,
             'geo_bypass_country': random.choice(['US', 'CA', 'GB', 'AU', 'DE']),
+            
+            # PROXY SUPPORT (if available)
+            **(({'proxy': random.choice(proxy_list)} if proxy_list else {})),
             
             # BYPASS STRATEGY 4: Rate Limiting
             'sleep_interval': 2,
@@ -633,16 +752,16 @@ async def extract_audio_and_transcribe_with_whisper(video_url: str, language: st
             'no_color': True,
         }
         
-        # TRY MULTIPLE BYPASS STRATEGIES
+        # TRY MULTIPLE BYPASS STRATEGIES WITH REALISTIC CHROME FINGERPRINTING
         strategies = [
-            # Strategy 1: Standard approach with advanced headers
-            audio_opts,
+            # Strategy 1: Realistic Chrome with advanced fingerprinting
+            base_opts,
             
-            # Strategy 2: Mobile-first approach
-            {**audio_opts, 
+            # Strategy 2: Mobile iPhone approach (different fingerprint)
+            {**base_opts, 
              'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
              'format': 'worst[ext=mp4]/worst',
-             'http_headers': {**audio_opts['http_headers'], 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1'}
+             'http_headers': {**chrome_headers, 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1'}
             },
             
             # Strategy 3: Embed approach (bypass main YouTube page)
