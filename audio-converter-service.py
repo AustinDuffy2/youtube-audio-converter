@@ -914,9 +914,9 @@ async def extract_audio_and_transcribe_with_whisper(video_url: str, language: st
                 logger.info(f"🎯 Attempting {strategy_name} (#{i}/{len(strategies)})...")
                 logger.info(f"🥷 Using disguised terminal with stealth fingerprinting...")
                 
-                # Add intelligent delay based on previous failures
+                # Add intelligent delay based on previous failures (reduced for Railway)
                 if i > 1:
-                    delay = random.uniform(2, 5) * i  # Increasing delay for later attempts
+                    delay = random.uniform(1, 2)  # Shorter delay for Railway timeout limits
                     logger.info(f"⏳ Strategic delay: {delay:.1f}s to avoid detection...")
                     import time
                     time.sleep(delay)
@@ -935,10 +935,10 @@ async def extract_audio_and_transcribe_with_whisper(video_url: str, language: st
                 error_preview = str(e)[:150] + "..." if len(str(e)) > 150 else str(e)
                 logger.warning(f"❌ {strategy_name} blocked: {error_preview}")
                 
-                # Check if it's a rate limiting error
+                # Check if it's a rate limiting error (reduced delays for Railway)
                 if "429" in str(e) or "rate limit" in str(e).lower():
-                    logger.info("🛑 Rate limiting detected - extending delay for next attempt")
-                    time.sleep(random.uniform(5, 10))
+                    logger.info("🛑 Rate limiting detected - brief delay for next attempt")
+                    time.sleep(random.uniform(1, 3))
                 elif "blocked" in str(e).lower() or "forbidden" in str(e).lower():
                     logger.info("🚫 IP/fingerprint detected - rotating to next strategy")
                     
