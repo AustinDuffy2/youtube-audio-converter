@@ -539,9 +539,9 @@ async def cleanup_temp_dir(temp_dir: Path):
         print(f"⚠️ Cleanup failed: {e}")
 
 async def extract_audio_and_transcribe_with_whisper(video_url: str, language: str = 'en') -> Dict:
-    """Extract audio and transcribe with Whisper API"""
+    """Extract audio and transcribe with Whisper API - ENHANCED BYPASS VERSION"""
     try:
-        logger.info(f"🎵 Extracting audio for Whisper: {video_url}")
+        logger.info(f"🎵 Starting ENHANCED audio extraction for Whisper: {video_url}")
         
         # Extract video ID
         video_id = extract_video_id(video_url)
@@ -550,6 +550,9 @@ async def extract_audio_and_transcribe_with_whisper(video_url: str, language: st
                 'success': False,
                 'error': 'Could not extract video ID from URL'
             }
+        
+        logger.info(f"🎯 Video ID: {video_id}")
+        logger.info(f"🚀 Using ADVANCED YouTube bypass techniques for audio extraction...")
         
         # ADVANCED YOUTUBE BOT DETECTION BYPASS WITH PROXY TUNNELING
         import random
@@ -821,39 +824,72 @@ async def extract_audio_and_transcribe_with_whisper(video_url: str, language: st
                 continue
         
         if not info:
-            raise Exception(f"All bypass strategies failed. Last error: {last_error}")
+            logger.error(f"🚫 All audio extraction strategies failed: {last_error}")
+            logger.info("🔄 YouTube is blocking audio extraction - this is expected behavior")
+            logger.info("💡 The system will gracefully fall back to existing captions")
+            return {
+                'success': False,
+                'error': f'YouTube blocked audio extraction: {last_error}',
+                'fallback_reason': 'youtube_blocking',
+                'video_id': video_id if 'video_id' in locals() else None
+            }
             
         video_id = info.get('id')
         title = info.get('title', 'Unknown Video')
         duration = info.get('duration', 0)
         
+        logger.info(f"🎬 Successfully extracted video info: {title} ({duration}s)")
+        
         # Find audio file
+        audio_path = None
         for ext in ['mp3', 'm4a', 'webm', 'opus']:
-            audio_path = f"{TEMP_DIR}/{video_id}.{ext}"
-            if os.path.exists(audio_path):
+            test_path = f"{TEMP_DIR}/{video_id}.{ext}"
+            if os.path.exists(test_path):
+                audio_path = test_path
+                logger.info(f"🎵 Found audio file: {audio_path}")
                 break
-        else:
+        
+        if not audio_path:
+            logger.error("❌ Audio file not found after successful extraction")
             return {
                 'success': False,
-                'error': 'Audio file not found after extraction'
+                'error': 'Audio file not found after extraction - this may indicate YouTube blocking',
+                'fallback_reason': 'file_not_found',
+                'video_id': video_id
             }
         
         # Convert to base64
         with open(audio_path, 'rb') as f:
             audio_data = f.read()
         
+        audio_size_mb = len(audio_data) / (1024 * 1024)
+        logger.info(f"🎵 Audio file size: {audio_size_mb:.2f} MB")
+        
         audio_base64 = base64.b64encode(audio_data).decode('utf-8')
         
         # Clean up audio file
         try:
             os.remove(audio_path)
-        except:
-            pass
+            logger.info(f"🗑️ Cleaned up audio file: {audio_path}")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not clean up audio file: {e}")
         
-        # Transcribe with Whisper
-        return await transcribe_with_whisper_api(
+        # 🎤 REAL WHISPER TRANSCRIPTION - This is the actual audio-to-text conversion!
+        logger.info("🚀 SUCCESS: Starting REAL Whisper API transcription of extracted audio!")
+        logger.info("🎯 This will generate a fresh transcription from the actual audio, not YouTube captions")
+        
+        whisper_result = await transcribe_with_whisper_api(
             audio_base64, 'audio/mp3', title, duration, language, video_id
         )
+        
+        if whisper_result.get('success'):
+            logger.info("✅ REAL WHISPER TRANSCRIPTION COMPLETED SUCCESSFULLY!")
+            logger.info(f"📝 Generated {len(whisper_result.get('transcription', {}).get('segments', []))} segments from real audio")
+            # Mark this as a real transcription, not YouTube captions
+            whisper_result['transcription_source'] = 'whisper_real_audio'
+            whisper_result['is_real_transcription'] = True
+        
+        return whisper_result
             
     except Exception as e:
         logger.error(f"❌ Audio extraction failed: {str(e)}")
