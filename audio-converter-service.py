@@ -862,6 +862,53 @@ async def extract_audio_and_transcribe_with_whisper(video_url: str, language: st
             'error': str(e)
         }
 
+async def save_transcription_to_supabase(video_id: str, video_url: str, title: str, channel_name: str, duration: int, transcription_data: Dict, user_id: str = 'demo-user') -> bool:
+    """Save transcription results to Supabase transcription_history table"""
+    try:
+        logger.info(f"💾 Saving transcription to Supabase for video: {video_id}")
+        
+        # Format captions for storage
+        captions = []
+        if transcription_data.get('segments'):
+            captions = [
+                {
+                    'start': seg['start'],
+                    'end': seg['end'],
+                    'text': seg['text'],
+                    'id': f"caption-{i}"
+                }
+                for i, seg in enumerate(transcription_data['segments'])
+            ]
+        
+        # Insert into transcription_history table
+        transcription_record = {
+            'user_id': user_id,
+            'video_id': video_id,
+            'video_url': video_url,
+            'video_title': title,
+            'video_thumbnail': f'https://img.youtube.com/vi/{video_id}/hqdefault.jpg',
+            'channel_name': channel_name,
+            'duration': str(duration),
+            'transcription_type': 'api',  # Whisper API transcription
+            'captions': captions,
+            'cost_charged': 0.02,  # Whisper API cost estimate
+            'ai_confidence': 0.95,  # High confidence for Whisper
+            'processing_time_ms': 30000  # Estimate
+        }
+        
+        result = supabase.table('transcription_history').insert(transcription_record).execute()
+        
+        if result.data:
+            logger.info(f"✅ Transcription saved to Supabase successfully")
+            return True
+        else:
+            logger.error(f"❌ Failed to save transcription to Supabase")
+            return False
+            
+    except Exception as e:
+        logger.error(f"❌ Error saving transcription to Supabase: {str(e)}")
+        return False
+
 async def transcribe_with_whisper_api(audio_base64: str, mime_type: str, title: str, duration: int, language: str, video_id: str) -> Dict:
     """Transcribe audio using OpenAI Whisper API"""
     if not OPENAI_API_KEY:
@@ -918,13 +965,27 @@ async def transcribe_with_whisper_api(audio_base64: str, mime_type: str, title: 
                     if seg.get('text', '').strip()
                 ]
             
+            transcription_data = {
+                'text': whisper_result.get('text', ''),
+                'language': whisper_result.get('language', language),
+                'segments': segments
+            }
+            
+            # 🔥 SAVE TO SUPABASE - This is the key missing piece!
+            video_url = f"https://www.youtube.com/watch?v={video_id}"
+            await save_transcription_to_supabase(
+                video_id=video_id,
+                video_url=video_url,
+                title=title,
+                channel_name='Unknown Channel',  # Could be extracted from video metadata
+                duration=duration,
+                transcription_data=transcription_data,
+                user_id='demo-user'
+            )
+            
             return {
                 'success': True,
-                'transcription': {
-                    'text': whisper_result.get('text', ''),
-                    'language': whisper_result.get('language', language),
-                    'segments': segments
-                },
+                'transcription': transcription_data,
                 'metadata': {
                     'title': title,
                     'duration': duration,
