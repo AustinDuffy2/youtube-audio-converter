@@ -558,42 +558,54 @@ async def extract_audio_and_transcribe_with_whisper(video_url: str, language: st
         import random
         import requests
         
-        # REALISTIC CHROME BROWSER FINGERPRINTING
-        def generate_realistic_chrome_fingerprint():
-            """Generate realistic Chrome browser fingerprint with proper versions and features"""
-            chrome_versions = ['120.0.6099.109', '120.0.6099.110', '120.0.6099.111', '120.0.6099.112', '120.0.6099.113']
-            webkit_versions = ['537.36']
+        # 🥷 ULTIMATE YOUTUBE EVASION SYSTEM - DISGUISED TERMINAL APPROACH
+        def generate_stealth_browser_session():
+            """Generate ultra-realistic browser session with complete fingerprinting evasion"""
+            
+            # Latest Chrome versions (updated frequently to stay current)
+            chrome_versions = [
+                '121.0.6167.85', '121.0.6167.139', '121.0.6167.184',
+                '122.0.6261.57', '122.0.6261.94', '122.0.6261.111',
+                '123.0.6312.58', '123.0.6312.86', '123.0.6312.105'
+            ]
+            
+            # Realistic OS fingerprints with proper version distributions
+            os_fingerprints = [
+                {
+                    'platform': 'Windows NT 10.0; Win64; x64',
+                    'accept_language': 'en-US,en;q=0.9',
+                    'timezone': 'America/New_York'
+                },
+                {
+                    'platform': 'Macintosh; Intel Mac OS X 10_15_7', 
+                    'accept_language': 'en-US,en;q=0.9',
+                    'timezone': 'America/Los_Angeles'
+                },
+                {
+                    'platform': 'X11; Linux x86_64',
+                    'accept_language': 'en-US,en;q=0.9',
+                    'timezone': 'America/Chicago'
+                }
+            ]
             
             chrome_version = random.choice(chrome_versions)
-            webkit_version = random.choice(webkit_versions)
+            os_config = random.choice(os_fingerprints)
             
-            # Windows versions
-            windows_versions = [
-                'Windows NT 10.0; Win64; x64',
-                'Windows NT 10.0; WOW64',
-                'Windows NT 11.0; Win64; x64'
-            ]
+            # Generate realistic session fingerprint
+            session_id = f"{random.randint(100000, 999999)}-{random.randint(1000, 9999)}"
             
-            # macOS versions  
-            macos_versions = [
-                'Macintosh; Intel Mac OS X 10_15_7',
-                'Macintosh; Intel Mac OS X 11_7_10',
-                'Macintosh; Intel Mac OS X 12_7_2',
-                'Macintosh; Intel Mac OS X 13_6_3'
-            ]
-            
-            # Choose platform
-            if random.choice([True, False]):
-                platform = random.choice(windows_versions)
-            else:
-                platform = random.choice(macos_versions)
-            
-            user_agent = f'Mozilla/5.0 ({platform}) AppleWebKit/{webkit_version} (KHTML, like Gecko) Chrome/{chrome_version} Safari/{webkit_version}'
+            user_agent = f'Mozilla/5.0 ({os_config["platform"]}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{chrome_version} Safari/537.36'
             
             return {
                 'user_agent': user_agent,
                 'chrome_version': chrome_version,
-                'platform': platform
+                'platform': os_config['platform'],
+                'accept_language': os_config['accept_language'],
+                'timezone': os_config['timezone'],
+                'session_id': session_id,
+                'viewport': f"{random.choice([1920, 1366, 1536, 1440])},{random.choice([1080, 768, 864, 900])}",
+                'screen_depth': random.choice([24, 32]),
+                'connection_type': random.choice(['4g', 'wifi', 'ethernet'])
             }
         
         # ADVANCED PROXY AND TUNNEL INTEGRATION
@@ -755,48 +767,135 @@ async def extract_audio_and_transcribe_with_whisper(video_url: str, language: st
             'no_color': True,
         }
         
-        # TRY MULTIPLE BYPASS STRATEGIES WITH REALISTIC CHROME FINGERPRINTING
+        # 🥷 ULTIMATE DISGUISED TERMINAL BYPASS STRATEGIES
+        # Generate stealth session for this request
+        stealth_session = generate_stealth_browser_session()
+        logger.info(f"🎭 Generated stealth session: {stealth_session['session_id']}")
+        logger.info(f"🖥️ Disguised as: {stealth_session['platform']} - {stealth_session['chrome_version']}")
+        
+        # Advanced headers that mimic real browser behavior
+        stealth_headers = {
+            'User-Agent': stealth_session['user_agent'],
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': stealth_session['accept_language'],
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Cache-Control': 'max-age=0',
+            'sec-ch-ua': f'"Chromium";v="{stealth_session["chrome_version"].split(".")[0]}", "Google Chrome";v="{stealth_session["chrome_version"].split(".")[0]}", "Not=A?Brand";v="99"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': f'"{stealth_session["platform"].split(";")[0]}"'
+        }
+        
         strategies = [
-            # Strategy 1: Realistic Chrome with advanced fingerprinting
-            base_opts,
-            
-            # Strategy 2: Mobile iPhone approach (different fingerprint)
-            {**base_opts, 
-             'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
-             'format': 'worst[ext=mp4]/worst',
-             'http_headers': {**chrome_headers, 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1'}
-            },
-            
-            # Strategy 3: Embed approach (bypass main YouTube page)
+            # 🎯 Strategy 1: STEALTH DESKTOP - Complete browser mimicry
             {
-                'format': 'bestaudio/best',
-                'extractaudio': True,
-                'audioformat': 'mp3',
+                'format': 'worstaudio[filesize<30M]/worstaudio/worst',
                 'outtmpl': f'{TEMP_DIR}/%(id)s.%(ext)s',
                 'quiet': True,
-                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'no_check_certificate': True,
-                'ignoreerrors': True,
-                # Try using embed URLs instead of regular YouTube URLs
+                'no_warnings': True,
+                'extractaudio': True,
+                'audioformat': 'mp3',
+                'http_headers': stealth_headers,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android', 'web'],
-                        'skip': ['webpage'],
+                        'player_client': ['web', 'mweb'],
+                        'skip': ['dash', 'hls'],
                     }
                 },
+                'socket_timeout': 45,
+                'retries': 3,
+                'fragment_retries': 5,
+                'sleep_interval_requests': random.uniform(1, 3),
+                'geo_bypass': True,
+                'no_check_certificate': True,
             },
             
-            # Strategy 4: Android client (often less restricted)
+            # 🎯 Strategy 2: MOBILE STEALTH - iOS Safari mimicry
             {
-                'format': 'bestaudio/best',
-                'extractaudio': True,
-                'audioformat': 'mp3',
+                'format': 'worstaudio[filesize<25M]/worstaudio/worst',
                 'outtmpl': f'{TEMP_DIR}/%(id)s.%(ext)s',
                 'quiet': True,
-                'user_agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip',
+                'no_warnings': True,
+                'extractaudio': True,
+                'audioformat': 'mp3',
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                },
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android'],
+                        'player_client': ['ios', 'mweb'],
+                        'skip': ['dash'],
+                    }
+                },
+                'socket_timeout': 30,
+                'retries': 2,
+            },
+            
+            # 🎯 Strategy 3: ANDROID STEALTH - Native app mimicry
+            {
+                'format': 'worstaudio[filesize<20M]/worst',
+                'outtmpl': f'{TEMP_DIR}/%(id)s.%(ext)s',
+                'quiet': True,
+                'no_warnings': True,
+                'extractaudio': True,
+                'audioformat': 'mp3',
+                'http_headers': {
+                    'User-Agent': f'com.google.android.youtube/{random.choice(["19.09.37", "19.10.35", "19.11.43"])} (Linux; U; Android {random.choice(["13", "14"]); SM-G998B) gzip',
+                    'X-YouTube-Client-Name': '3',
+                    'X-YouTube-Client-Version': '19.09.37',
+                },
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['android', 'android_music'],
+                        'skip': ['dash'],
+                    }
+                },
+                'socket_timeout': 25,
+                'retries': 1,
+            },
+            
+            # 🎯 Strategy 4: EMBED STEALTH - Bypass main page detection
+            {
+                'format': 'worst[ext=mp4]/worst',
+                'outtmpl': f'{TEMP_DIR}/%(id)s.%(ext)s',
+                'quiet': True,
+                'no_warnings': True,
+                'extractaudio': True,
+                'audioformat': 'mp3',
+                'http_headers': stealth_headers,
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['web'],
+                        'skip': ['webpage', 'dash'],
+                    }
+                },
+                'no_check_certificate': True,
+                'ignoreerrors': True,
+            },
+            
+            # 🎯 Strategy 5: ULTIMATE FALLBACK - Minimal detection footprint
+            {
+                'format': 'worst',
+                'outtmpl': f'{TEMP_DIR}/%(id)s.%(ext)s',
+                'quiet': True,
+                'no_warnings': True,
+                'extractaudio': True,
+                'audioformat': 'mp3',
+                'http_headers': {
+                    'User-Agent': 'yt-dlp/2023.12.30',
+                },
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['web'],
                     }
                 },
             }
@@ -807,20 +906,44 @@ async def extract_audio_and_transcribe_with_whisper(video_url: str, language: st
         
         for i, strategy in enumerate(strategies, 1):
             try:
-                logger.info(f"🎯 Trying bypass strategy {i}/{len(strategies)}...")
+                strategy_name = [
+                    "STEALTH DESKTOP", "MOBILE STEALTH", "ANDROID STEALTH", 
+                    "EMBED STEALTH", "ULTIMATE FALLBACK"
+                ][i-1] if i <= 5 else f"STRATEGY {i}"
+                
+                logger.info(f"🎯 Attempting {strategy_name} (#{i}/{len(strategies)})...")
+                logger.info(f"🥷 Using disguised terminal with stealth fingerprinting...")
+                
+                # Add intelligent delay based on previous failures
+                if i > 1:
+                    delay = random.uniform(2, 5) * i  # Increasing delay for later attempts
+                    logger.info(f"⏳ Strategic delay: {delay:.1f}s to avoid detection...")
+                    import time
+                    time.sleep(delay)
+                
+                # Execute with stealth configuration
                 with yt_dlp.YoutubeDL(strategy) as ydl:
+                    logger.info("🚀 Initiating stealth audio extraction...")
                     info = ydl.extract_info(video_url, download=True)
                     if info:
-                        logger.info(f"✅ Strategy {i} succeeded!")
+                        logger.info(f"🎉 SUCCESS! {strategy_name} bypassed YouTube blocking!")
+                        logger.info("🎵 Real audio extraction successful - proceeding to Whisper transcription")
                         break
+                        
             except Exception as e:
                 last_error = str(e)
-                logger.warning(f"❌ Strategy {i} failed: {str(e)[:100]}...")
+                error_preview = str(e)[:150] + "..." if len(str(e)) > 150 else str(e)
+                logger.warning(f"❌ {strategy_name} blocked: {error_preview}")
+                
+                # Check if it's a rate limiting error
+                if "429" in str(e) or "rate limit" in str(e).lower():
+                    logger.info("🛑 Rate limiting detected - extending delay for next attempt")
+                    time.sleep(random.uniform(5, 10))
+                elif "blocked" in str(e).lower() or "forbidden" in str(e).lower():
+                    logger.info("🚫 IP/fingerprint detected - rotating to next strategy")
+                    
                 if i < len(strategies):
-                    logger.info(f"🔄 Trying next strategy...")
-                    # Wait a bit between attempts
-                    import time
-                    time.sleep(random.uniform(1, 3))
+                    logger.info(f"🔄 Rotating to next stealth strategy...")
                 continue
         
         if not info:
